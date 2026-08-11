@@ -1,0 +1,13 @@
+{
+  "name": "QuickKit — Local browser tools",
+  "short_name": "QuickKit",
+  "description": "Fast utilities for text, data, files, and developer workflows. Your content stays in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#183f35",
+  "categories": ["utilities", "productivity", "developer tools"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

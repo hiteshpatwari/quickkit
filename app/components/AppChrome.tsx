@@ -1,0 +1,225 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { searchTools, tools, type ToolId } from "../lib/tools";
+
+type Theme = "system" | "light" | "dark";
+type QuickKitContextValue = {
+  favorites: ToolId[];
+  toggleFavorite: (id: ToolId) => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  openPalette: () => void;
+};
+
+const QuickKitContext = createContext<QuickKitContextValue | null>(null);
+
+export function useQuickKit() {
+  const value = useContext(QuickKitContext);
+  if (!value) throw new Error("QuickKit context is unavailable.");
+  return value;
+}
+
+function readFavorites(): ToolId[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem("quickkit.favorites") ?? "[]") as string[];
+    return saved.filter((id): id is ToolId => tools.some((tool) => tool.id === id));
+  } catch {
+    return [];
+  }
+}
+
+function applyTheme(theme: Theme) {
+  const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+}
+
+function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const results = useMemo(() => searchTools(query).slice(0, 7), [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [open]);
+
+  if (!open) return null;
+
+  const navigate = (route: string) => {
+    router.push(route);
+    onClose();
+  };
+
+  return (
+    <div className="palette-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <dialog
+        open
+        className="palette"
+        aria-modal="true"
+        aria-label="QuickKit command palette"
+      >
+        <div className="palette-search">
+          <span aria-hidden="true">⌘</span>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") onClose();
+              if (event.key === "Enter" && results[0]) navigate(results[0].route);
+            }}
+            placeholder="Find a tool or command…"
+            aria-label="Search tools and commands"
+          />
+          <kbd>esc</kbd>
+        </div>
+        <div className="palette-list" role="listbox">
+          <p className="eyebrow">Tools</p>
+          {results.length ? (
+            results.map((tool, index) => (
+              <button
+                key={tool.id}
+                className={`palette-result ${index === 0 ? "is-active" : ""}`}
+                onClick={() => navigate(tool.route)}
+                role="option"
+                aria-selected={index === 0}
+              >
+                <span className="tool-glyph" aria-hidden="true">{tool.icon}</span>
+                <span><strong>{tool.shortName}</strong><small>{tool.description}</small></span>
+                <span className="palette-category">{tool.category}</span>
+              </button>
+            ))
+          ) : (
+            <div className="palette-empty">No tools match “{query}”.</div>
+          )}
+        </div>
+        <footer className="palette-footer">
+          <span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span>
+        </footer>
+      </dialog>
+    </div>
+  );
+}
+
+function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
+  }, []);
+  return null;
+}
+
+export function AppChrome({ children }: { children: ReactNode }) {
+  const [favorites, setFavorites] = useState<ToolId[]>([]);
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [online, setOnline] = useState(true);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setFavorites(readFavorites());
+      const savedTheme = (localStorage.getItem("quickkit.theme") as Theme | null) ?? "system";
+      setThemeState(savedTheme);
+      applyTheme(savedTheme);
+      setOnline(navigator.onLine);
+    });
+
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const onSystemChange = () => {
+      const current = (localStorage.getItem("quickkit.theme") as Theme | null) ?? "system";
+      if (current === "system") applyTheme(current);
+    };
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    media.addEventListener("change", onSystemChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      cancelAnimationFrame(frame);
+      media.removeEventListener("change", onSystemChange);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (event.key === "Escape") setPaletteOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const toggleFavorite = useCallback((id: ToolId) => {
+    setFavorites((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+      localStorage.setItem("quickkit.favorites", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const setTheme = useCallback((nextTheme: Theme) => {
+    setThemeState(nextTheme);
+    localStorage.setItem("quickkit.theme", nextTheme);
+    applyTheme(nextTheme);
+  }, []);
+
+  const value = useMemo(
+    () => ({ favorites, toggleFavorite, theme, setTheme, openPalette: () => setPaletteOpen(true) }),
+    [favorites, toggleFavorite, theme, setTheme],
+  );
+
+  return (
+    <QuickKitContext.Provider value={value}>
+      <ServiceWorkerRegistration />
+      <div className="app-shell">
+        <header className="site-header">
+          <Link href="/" className="brand" aria-label="QuickKit home">
+            <span className="brand-mark" aria-hidden="true">QK</span>
+            <span>QuickKit</span>
+          </Link>
+          <nav aria-label="Primary navigation">
+            <Link className={pathname === "/" ? "is-current" : ""} href="/">Tools</Link>
+            <Link className={pathname === "/favorites" ? "is-current" : ""} href="/favorites">
+              Favorites <span className="nav-count">{favorites.length}</span>
+            </Link>
+            <Link className={pathname === "/about" ? "is-current" : ""} href="/about">About</Link>
+          </nav>
+          <div className="header-actions">
+            {!online && <span className="offline-pill">Offline · tools still work</span>}
+            <button className="shortcut-button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
+              <span>Search</span><kbd>⌘ K</kbd>
+            </button>
+            <Link className="icon-link" href="/settings" aria-label="Open settings">⚙</Link>
+          </div>
+        </header>
+        <main>{children}</main>
+        <footer className="site-footer">
+          <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
+          <div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/about">Architecture</Link><span>v0.1.0</span></div>
+        </footer>
+      </div>
+      <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    </QuickKitContext.Provider>
+  );
+}
