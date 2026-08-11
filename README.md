@@ -57,6 +57,18 @@ pnpm lint
 
 The server-render check verifies the product home and the absence of starter-preview metadata. Source-level privacy checks verify the worker facade and documented persistence boundary.
 
+## Cloudflare Workers deployment
+
+QuickKit builds with Vinext and Vite, then deploys the generated Worker and static assets with Wrangler:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run build
+npx wrangler deploy
+```
+
+The Worker configuration is self-contained in `wrangler.jsonc`. It requires the generated static-assets binding and Cloudflare Images binding used by the Vinext image-optimization endpoint. QuickKit requires no application environment variables, secrets, D1 database, or R2 bucket.
+
 ## Performance
 
 The first implementation moves heavy deterministic operations to a worker and bounds rendered CSV rows to 60 per page. Text diff uses exact LCS for moderate inputs and a bounded comparison for very large matrices. Published hardware/browser benchmarks are intentionally deferred until the release-hardening fixtures have been measured; see [docs/performance.md](./docs/performance.md).

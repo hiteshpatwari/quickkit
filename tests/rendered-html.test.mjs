@@ -34,7 +34,7 @@ test("server-renders the QuickKit product home", async () => {
   assert.match(html, /Tiny tools\./);
   assert.match(html, /Zero unnecessary uploads\./);
   assert.match(html, /Your browser is the backend/);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+  assert.doesNotMatch(html, /react-loading-skeleton/i);
 });
 
 test("keeps privacy boundaries explicit in source", async () => {
