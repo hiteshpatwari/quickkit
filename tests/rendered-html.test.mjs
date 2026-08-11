@@ -133,6 +133,9 @@ test("exposes every tool in the command palette and header switcher", async () =
   assert.match(styles, /\.palette-list \{[^}]*overflow-y: auto/);
   assert.match(styles, /scrollbar-gutter: stable/);
   assert.match(appChrome, /aria-controls="tools-navigation-panel"/);
+  assert.match(appChrome, /className="tools-nav-caret"/);
+  assert.doesNotMatch(appChrome, /Tools <span aria-hidden="true">⌄<\/span>/);
+  assert.match(styles, /\.tools-nav-caret \{[^}]*border-top: 5px solid currentColor/);
   assert.match(appChrome, /onMouseEnter=\{\(\) => setToolsMenuOpen\(true\)\}/);
   assert.match(appChrome, /onFocusCapture=\{\(\) => setToolsMenuOpen\(true\)\}/);
   assert.match(appChrome, /categories\.map/);

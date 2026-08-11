@@ -287,7 +287,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
                 aria-haspopup="true"
                 onClick={() => setToolsMenuOpen(true)}
               >
-                Tools <span aria-hidden="true">⌄</span>
+                Tools <span className="tools-nav-caret" aria-hidden="true" />
               </button>
               <div id="tools-navigation-panel" className="tools-nav-panel" aria-label="QuickKit tools">
                 <div className="tools-nav-card">
@@ -327,7 +327,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
         <main>{children}</main>
         <footer className="site-footer">
           <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
-          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.4</span></div>
+          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.5</span></div>
         </footer>
       </div>
       <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
