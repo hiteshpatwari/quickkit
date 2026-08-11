@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -80,7 +79,7 @@ function ToolHeader({ tool }: { tool: ToolDefinition }) {
   const favorite = favorites.includes(tool.id);
   return (
     <header className="tool-header">
-      <div className="tool-breadcrumb"><Link href="/">Tools</Link><span>/</span><span>{tool.category}</span></div>
+      <div className="tool-breadcrumb"><a href="/">Tools</a><span>/</span><span>{tool.category}</span></div>
       <div className="tool-heading-row">
         <div className="tool-heading-icon" aria-hidden="true">{tool.icon}</div>
         <div><h1>{tool.name}</h1><p>{tool.description}</p></div>

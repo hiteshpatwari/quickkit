@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ToolDefinition } from "../lib/tools";
 import { useQuickKit } from "./AppChrome";
 
@@ -21,11 +20,11 @@ export function ToolCard({ tool }: { tool: ToolDefinition }) {
           {favorite ? "★" : "☆"}
         </button>
       </div>
-      <Link href={tool.route} className="tool-card-link">
+      <a href={tool.route} className="tool-card-link">
         <h3>{tool.shortName}</h3>
         <p>{tool.description}</p>
         <span className="open-tool">Open tool <span aria-hidden="true">↗</span></span>
-      </Link>
+      </a>
       <div className="local-label"><span aria-hidden="true">●</span> Runs locally</div>
     </article>
   );

@@ -1,5 +1,5 @@
-const CACHE = "quickkit-shell-v1";
-const SHELL = ["/", "/privacy", "/about", "/manifest.webmanifest"];
+const CACHE = "quickkit-shell-v2";
+const SHELL = ["/", "/favorites", "/settings", "/privacy", "/about", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -48,7 +46,6 @@ function applyTheme(theme: Theme) {
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const results = useMemo(() => searchTools(query).slice(0, 7), [query]);
 
@@ -60,8 +57,8 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
   if (!open) return null;
 
   const navigate = (route: string) => {
-    router.push(route);
     onClose();
+    window.location.assign(route);
   };
 
   return (
@@ -129,7 +126,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [online, setOnline] = useState(true);
-  const pathname = usePathname();
+  const [pathname, setPathname] = useState("");
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -138,6 +135,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       setThemeState(savedTheme);
       applyTheme(savedTheme);
       setOnline(navigator.onLine);
+      setPathname(window.location.pathname);
     });
 
     const media = matchMedia("(prefers-color-scheme: dark)");
@@ -194,29 +192,29 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <ServiceWorkerRegistration />
       <div className="app-shell">
         <header className="site-header">
-          <Link href="/" className="brand" aria-label="QuickKit home">
+          <a href="/" className="brand" aria-label="QuickKit home">
             <span className="brand-mark" aria-hidden="true">QK</span>
             <span>QuickKit</span>
-          </Link>
+          </a>
           <nav aria-label="Primary navigation">
-            <Link className={pathname === "/" ? "is-current" : ""} href="/">Tools</Link>
-            <Link className={pathname === "/favorites" ? "is-current" : ""} href="/favorites">
+            <a className={pathname === "/" ? "is-current" : ""} href="/">Tools</a>
+            <a className={pathname === "/favorites" ? "is-current" : ""} href="/favorites">
               Favorites <span className="nav-count">{favorites.length}</span>
-            </Link>
-            <Link className={pathname === "/about" ? "is-current" : ""} href="/about">About</Link>
+            </a>
+            <a className={pathname === "/about" ? "is-current" : ""} href="/about">About</a>
           </nav>
           <div className="header-actions">
             {!online && <span className="offline-pill">Offline · tools still work</span>}
             <button className="shortcut-button" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
               <span>Search</span><kbd>⌘ K</kbd>
             </button>
-            <Link className="icon-link" href="/settings" aria-label="Open settings">⚙</Link>
+            <a className="icon-link" href="/settings" aria-label="Open settings">⚙</a>
           </div>
         </header>
         <main>{children}</main>
         <footer className="site-footer">
           <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
-          <div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/about">Architecture</Link><span>v0.1.0</span></div>
+          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.1</span></div>
         </footer>
       </div>
       <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />

@@ -35,6 +35,11 @@ const eslintConfig = defineConfig([
         version: "detect",
       },
     },
+    rules: {
+      // Vinext's client-router shim is not reliable on the Sites runtime yet.
+      // Full document navigation keeps these static utility routes dependable.
+      "@next/next/no-html-link-for-pages": "off",
+    },
   },
 ]);
 
