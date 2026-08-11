@@ -113,6 +113,10 @@ test("applies the saved theme globally before page content renders", async () =>
   }
 
   const appChrome = await readFile(new URL("../app/components/AppChrome.tsx", import.meta.url), "utf8");
+  assert.match(appChrome, /useLayoutEffect\(\(\) => \{/);
+  assert.match(appChrome, /\[children\]/);
+  assert.match(appChrome, /new MutationObserver/);
+  assert.match(appChrome, /attributeFilter: \["data-theme"\]/);
   assert.match(appChrome, /window\.addEventListener\("pageshow", syncTheme\)/);
   assert.match(appChrome, /window\.addEventListener\("storage", onStorage\)/);
 });

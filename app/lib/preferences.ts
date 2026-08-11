@@ -3,8 +3,12 @@ export type Theme = "system" | "light" | "dark";
 const THEME_KEY = "quickkit.theme";
 
 export function readTheme(): Theme {
-  const saved = localStorage.getItem(THEME_KEY);
-  return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+  } catch {
+    return "system";
+  }
 }
 
 export function applyTheme(theme: Theme) {

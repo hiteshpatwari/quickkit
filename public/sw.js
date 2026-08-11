@@ -1,13 +1,16 @@
-const CACHE = "quickkit-shell-v3";
+const CACHE = "quickkit-shell-v4";
 const SHELL = ["/", "/favorites", "/settings", "/privacy", "/about", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(Promise.all([self.skipWaiting(), caches.open(CACHE).then((cache) => cache.addAll(SHELL))]));
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))),
+    ]),
   );
 });
 

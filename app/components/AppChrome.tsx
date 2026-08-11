@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -122,6 +123,18 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(true);
   const [pathname, setPathname] = useState("");
 
+  const syncTheme = useCallback(() => {
+    const current = readTheme();
+    setThemeState(current);
+    applyTheme(current);
+  }, []);
+
+  useLayoutEffect(() => {
+    // Vinext may update the root document during a client route transition.
+    // Restore device preferences as part of that same commit, before paint.
+    applyTheme(readTheme());
+  }, [children]);
+
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setFavorites(readFavorites());
@@ -133,11 +146,6 @@ export function AppChrome({ children }: { children: ReactNode }) {
     });
 
     const media = matchMedia("(prefers-color-scheme: dark)");
-    const syncTheme = () => {
-      const current = readTheme();
-      setThemeState(current);
-      applyTheme(current);
-    };
     const onSystemChange = () => {
       const current = readTheme();
       if (current === "system") applyTheme(current);
@@ -147,6 +155,13 @@ export function AppChrome({ children }: { children: ReactNode }) {
     };
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
+    const root = document.documentElement;
+    const themeObserver = new MutationObserver(() => {
+      const current = readTheme();
+      const expected = current === "dark" || (current === "system" && media.matches) ? "dark" : "light";
+      if (root.dataset.theme !== expected) syncTheme();
+    });
+    themeObserver.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     media.addEventListener("change", onSystemChange);
     window.addEventListener("pageshow", syncTheme);
     window.addEventListener("storage", onStorage);
@@ -154,13 +169,14 @@ export function AppChrome({ children }: { children: ReactNode }) {
     window.addEventListener("offline", onOffline);
     return () => {
       cancelAnimationFrame(frame);
+      themeObserver.disconnect();
       media.removeEventListener("change", onSystemChange);
       window.removeEventListener("pageshow", syncTheme);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
-  }, []);
+  }, [syncTheme]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -220,7 +236,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
         <main>{children}</main>
         <footer className="site-footer">
           <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
-          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.2</span></div>
+          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.3</span></div>
         </footer>
       </div>
       <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
