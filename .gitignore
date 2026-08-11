@@ -11,12 +11,14 @@
 !.yarn/versions
 
 # testing
+
 /coverage
 
 # next.js
 /.next/
 /.vinext/
 /out/
+.openai/
 
 # misc
 .DS_Store
