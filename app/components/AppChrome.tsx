@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { applyTheme, readTheme, type Theme } from "../lib/preferences";
-import { searchTools, tools, type ToolId } from "../lib/tools";
+import { categories, searchTools, tools, type ToolId } from "../lib/tools";
 
 type QuickKitContextValue = {
   favorites: ToolId[];
@@ -41,13 +41,20 @@ function readFavorites(): ToolId[] {
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const results = useMemo(() => searchTools(query).slice(0, 7), [query]);
+  const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const results = useMemo(() => searchTools(query), [query]);
 
   useEffect(() => {
     if (!open) return;
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    resultRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, open]);
 
   if (!open) return null;
 
@@ -69,10 +76,29 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
           <input
             ref={inputRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Escape") onClose();
-              if (event.key === "Enter" && results[0]) navigate(results[0].route);
+              if (event.key === "ArrowDown" && results.length) {
+                event.preventDefault();
+                setActiveIndex((current) => Math.min(current + 1, results.length - 1));
+              }
+              if (event.key === "ArrowUp" && results.length) {
+                event.preventDefault();
+                setActiveIndex((current) => Math.max(current - 1, 0));
+              }
+              if (event.key === "Home" && results.length) {
+                event.preventDefault();
+                setActiveIndex(0);
+              }
+              if (event.key === "End" && results.length) {
+                event.preventDefault();
+                setActiveIndex(results.length - 1);
+              }
+              if (event.key === "Enter" && results[activeIndex]) navigate(results[activeIndex].route);
             }}
             placeholder="Find a tool or command…"
             aria-label="Search tools and commands"
@@ -85,10 +111,12 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
             results.map((tool, index) => (
               <button
                 key={tool.id}
-                className={`palette-result ${index === 0 ? "is-active" : ""}`}
+                ref={(node) => { resultRefs.current[index] = node; }}
+                className={`palette-result ${index === activeIndex ? "is-active" : ""}`}
                 onClick={() => navigate(tool.route)}
+                onMouseEnter={() => setActiveIndex(index)}
                 role="option"
-                aria-selected={index === 0}
+                aria-selected={index === activeIndex}
               >
                 <span className="tool-glyph" aria-hidden="true">{tool.icon}</span>
                 <span><strong>{tool.shortName}</strong><small>{tool.description}</small></span>
@@ -100,7 +128,8 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
           )}
         </div>
         <footer className="palette-footer">
-          <span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span>
+          <span>{results.length} {results.length === 1 ? "tool" : "tools"}</span>
+          <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span>
         </footer>
       </dialog>
     </div>
@@ -120,8 +149,10 @@ export function AppChrome({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<ToolId[]>([]);
   const [theme, setThemeState] = useState<Theme>("system");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [online, setOnline] = useState(true);
   const [pathname, setPathname] = useState("");
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
 
   const syncTheme = useCallback(() => {
     const current = readTheme();
@@ -184,11 +215,29 @@ export function AppChrome({ children }: { children: ReactNode }) {
         event.preventDefault();
         setPaletteOpen(true);
       }
-      if (event.key === "Escape") setPaletteOpen(false);
+      if (event.key === "Escape") {
+        setPaletteOpen(false);
+        setToolsMenuOpen(false);
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!toolsMenuRef.current?.contains(event.target as Node)) setToolsMenuOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
   }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setPathname(window.location.pathname);
+      setToolsMenuOpen(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [children]);
 
   const toggleFavorite = useCallback((id: ToolId) => {
     setFavorites((current) => {
@@ -208,6 +257,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
     () => ({ favorites, toggleFavorite, theme, setTheme, openPalette: () => setPaletteOpen(true) }),
     [favorites, toggleFavorite, theme, setTheme],
   );
+  const toolsCurrent = pathname === "/" || pathname.startsWith("/tools/");
 
   return (
     <QuickKitContext.Provider value={value}>
@@ -219,7 +269,48 @@ export function AppChrome({ children }: { children: ReactNode }) {
             <span>QuickKit</span>
           </a>
           <nav aria-label="Primary navigation">
-            <a className={pathname === "/" ? "is-current" : ""} href="/">Tools</a>
+            <div
+              ref={toolsMenuRef}
+              className={`tools-nav-menu ${toolsMenuOpen ? "is-open" : ""}`}
+              onMouseEnter={() => setToolsMenuOpen(true)}
+              onMouseLeave={() => setToolsMenuOpen(false)}
+              onFocusCapture={() => setToolsMenuOpen(true)}
+              onBlurCapture={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setToolsMenuOpen(false);
+              }}
+            >
+              <button
+                type="button"
+                className={`tools-nav-trigger ${toolsCurrent ? "is-current" : ""}`}
+                aria-expanded={toolsMenuOpen}
+                aria-controls="tools-navigation-panel"
+                aria-haspopup="true"
+                onClick={() => setToolsMenuOpen(true)}
+              >
+                Tools <span aria-hidden="true">⌄</span>
+              </button>
+              <div id="tools-navigation-panel" className="tools-nav-panel" aria-label="QuickKit tools">
+                <div className="tools-nav-card">
+                  <div className="tools-nav-heading">
+                    <div><span>Quick switcher</span><strong>All local tools</strong></div>
+                    <a href="/">Browse all <span aria-hidden="true">→</span></a>
+                  </div>
+                  <div className="tools-nav-grid">
+                    {categories.map((category) => (
+                      <section key={category} aria-labelledby={`tools-menu-${category.toLowerCase()}`}>
+                        <p id={`tools-menu-${category.toLowerCase()}`}>{category}</p>
+                        {tools.filter((tool) => tool.category === category).map((tool) => (
+                          <a key={tool.id} href={tool.route} className={pathname === tool.route ? "is-active" : ""}>
+                            <span className="tools-nav-glyph" aria-hidden="true">{tool.icon}</span>
+                            <span>{tool.shortName}</span>
+                          </a>
+                        ))}
+                      </section>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
             <a className={pathname === "/favorites" ? "is-current" : ""} href="/favorites">
               Favorites <span className="nav-count">{favorites.length}</span>
             </a>
@@ -236,7 +327,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
         <main>{children}</main>
         <footer className="site-footer">
           <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
-          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.3</span></div>
+          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.4</span></div>
         </footer>
       </div>
       <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />

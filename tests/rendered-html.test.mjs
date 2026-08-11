@@ -120,3 +120,21 @@ test("applies the saved theme globally before page content renders", async () =>
   assert.match(appChrome, /window\.addEventListener\("pageshow", syncTheme\)/);
   assert.match(appChrome, /window\.addEventListener\("storage", onStorage\)/);
 });
+
+test("exposes every tool in the command palette and header switcher", async () => {
+  const [appChrome, styles, toolRegistry] = await Promise.all([
+    readFile(new URL("../app/components/AppChrome.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/tools.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(appChrome, /const results = useMemo\(\(\) => searchTools\(query\)/);
+  assert.doesNotMatch(appChrome, /searchTools\(query\)\.slice/);
+  assert.match(appChrome, /setActiveIndex\(results\.length - 1\)/);
+  assert.match(styles, /\.palette-list \{[^}]*overflow-y: auto/);
+  assert.match(styles, /scrollbar-gutter: stable/);
+  assert.match(appChrome, /aria-controls="tools-navigation-panel"/);
+  assert.match(appChrome, /onMouseEnter=\{\(\) => setToolsMenuOpen\(true\)\}/);
+  assert.match(appChrome, /onFocusCapture=\{\(\) => setToolsMenuOpen\(true\)\}/);
+  assert.match(appChrome, /categories\.map/);
+  assert.equal((toolRegistry.match(/route: "\/tools\//g) ?? []).length, 10);
+});
