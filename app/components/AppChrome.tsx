@@ -10,9 +10,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { applyTheme, readTheme, type Theme } from "../lib/preferences";
 import { searchTools, tools, type ToolId } from "../lib/tools";
 
-type Theme = "system" | "light" | "dark";
 type QuickKitContextValue = {
   favorites: ToolId[];
   toggleFavorite: (id: ToolId) => void;
@@ -36,12 +36,6 @@ function readFavorites(): ToolId[] {
   } catch {
     return [];
   }
-}
-
-function applyTheme(theme: Theme) {
-  const dark = theme === "dark" || (theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
-  document.documentElement.style.colorScheme = dark ? "dark" : "light";
 }
 
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -131,7 +125,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setFavorites(readFavorites());
-      const savedTheme = (localStorage.getItem("quickkit.theme") as Theme | null) ?? "system";
+      const savedTheme = readTheme();
       setThemeState(savedTheme);
       applyTheme(savedTheme);
       setOnline(navigator.onLine);
@@ -139,18 +133,30 @@ export function AppChrome({ children }: { children: ReactNode }) {
     });
 
     const media = matchMedia("(prefers-color-scheme: dark)");
+    const syncTheme = () => {
+      const current = readTheme();
+      setThemeState(current);
+      applyTheme(current);
+    };
     const onSystemChange = () => {
-      const current = (localStorage.getItem("quickkit.theme") as Theme | null) ?? "system";
+      const current = readTheme();
       if (current === "system") applyTheme(current);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "quickkit.theme") syncTheme();
     };
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     media.addEventListener("change", onSystemChange);
+    window.addEventListener("pageshow", syncTheme);
+    window.addEventListener("storage", onStorage);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     return () => {
       cancelAnimationFrame(frame);
       media.removeEventListener("change", onSystemChange);
+      window.removeEventListener("pageshow", syncTheme);
+      window.removeEventListener("storage", onStorage);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
@@ -214,7 +220,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
         <main>{children}</main>
         <footer className="site-footer">
           <div><span className="status-dot" aria-hidden="true" /> All core tools process data locally.</div>
-          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.1</span></div>
+          <div className="footer-links"><a href="/privacy">Privacy</a><a href="/about#architecture">Architecture</a><span>v0.1.2</span></div>
         </footer>
       </div>
       <CommandPalette key={paletteOpen ? "palette-open" : "palette-closed"} open={paletteOpen} onClose={() => setPaletteOpen(false)} />

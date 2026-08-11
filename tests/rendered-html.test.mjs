@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -87,4 +88,31 @@ test("serves every reported destination and an origin-relative worker", async ()
   const chunks = (await Promise.all(chunkFiles.map((file) => readFile(new URL(file, chunkDirectory), "utf8")))).join("\n");
   assert.match(chunks, /new Worker\(`\/_next\/static\/quickkit\.worker-/);
   assert.doesNotMatch(chunks, /file:\/\/\/_next\/static\/quickkit\.worker-/);
+});
+
+test("applies the saved theme globally before page content renders", async () => {
+  const response = await render("/about");
+  const html = await response.text();
+  const script = html.match(/<script id="quickkit-preferences">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script, "the global preference bootstrap should be server-rendered");
+  assert.ok(html.indexOf('id="quickkit-preferences"') < html.indexOf("<body"), "theme bootstrap should run before body content");
+
+  for (const [savedTheme, prefersDark, expected] of [
+    ["dark", false, "dark"],
+    ["light", true, "light"],
+    ["system", true, "dark"],
+  ]) {
+    const root = { dataset: {}, style: {} };
+    vm.runInNewContext(script, {
+      document: { documentElement: root },
+      localStorage: { getItem: () => savedTheme },
+      matchMedia: () => ({ matches: prefersDark }),
+    });
+    assert.equal(root.dataset.theme, expected);
+    assert.equal(root.style.colorScheme, expected);
+  }
+
+  const appChrome = await readFile(new URL("../app/components/AppChrome.tsx", import.meta.url), "utf8");
+  assert.match(appChrome, /window\.addEventListener\("pageshow", syncTheme\)/);
+  assert.match(appChrome, /window\.addEventListener\("storage", onStorage\)/);
 });

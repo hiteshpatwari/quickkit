@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppChrome } from "./components/AppChrome";
+import { PREFERENCE_BOOTSTRAP } from "./lib/preferences";
 
 export const metadata: Metadata = {
   title: {
@@ -34,7 +35,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script id="quickkit-preferences" dangerouslySetInnerHTML={{ __html: PREFERENCE_BOOTSTRAP }} />
+      </head>
       <body>
         <noscript><div className="noscript">QuickKit requires JavaScript because every tool processes data in your browser.</div></noscript>
         <AppChrome>{children}</AppChrome>
